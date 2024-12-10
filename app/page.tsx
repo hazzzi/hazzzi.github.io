@@ -1,87 +1,67 @@
-import { Button } from '@react95/core';
-import { Bookmark, Computer, Explore } from '@react95/icons';
-import Image from 'next/image';
-import React from 'react';
+'use client';
+import { Frame, Modal } from '@react95/core';
+import { IListProps } from '@react95/core/List';
+import { Folder, Notepad } from '@react95/icons';
+import { Metadata } from 'next';
+import {
+  ElementType,
+  JSXElementConstructor,
+  ReactElement,
+  useState
+} from 'react';
+import Footer from './footer';
+
+const metadata: Metadata = {
+  title: 'hazzzi.dev — A blog by Hazzzi',
+  description: 'My Personal Blog',
+};
+
+// Frame을 명시적으로 ReactElement를 반환하는 컴포넌트로 타입 지정
+const StyledFrame: ElementType = Frame as unknown as ElementType;
+type List = ReactElement<IListProps, string | JSXElementConstructor<any>>;
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          className="mx-auto"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{' '}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [open, setOpen] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <Button
-            as="a"
-            className="flex items-center justify-center gap-2"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </Button>
-          <Button
-            as="a"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </Button>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+  const handleToggle = () => setOpen((open) => !open);
+
+  return (
+    <main className="p-8 flex">
+      <aside>
+        <button className="flex flex-col justify-center items-center p-2">
+          <Folder variant="32x32_4" />
+          <span className="break-words whitespace-pre-wrap">내 문서</span>
+        </button>
+      </aside>
+      <section className="">
+        <Modal
+          icon={<Folder variant="16x16_4" />}
+          title="My Document"
+          menu={[
+            { name: 'File', list: [] as unknown as List },
+            { name: 'Edit', list: [] as unknown as List },
+            { name: 'Help', list: [] as unknown as List },
+          ]}
+          dragOptions={{
+            defaultPosition: {
+              x: 60,
+              y: 40,
+            },
+          }}
         >
-          <Bookmark variant="32x32_4" className="w-6 h-6" />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Computer className="w-6 h-6" />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Explore className="w-6 h-6" />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          <StyledFrame width="70vw" height="50vh" bg="white" boxShadow="in">
+            <button
+              className="flex flex-col justify-center items-center p-2"
+              onClick={handleToggle}
+            >
+              <Notepad variant="32x32_4" />
+              <span className="break-words whitespace-pre-wrap">테스트</span>
+            </button>
+          </StyledFrame>
+        </Modal>
+      </section>
+      <Footer />
+      {open && <Modal title="My Test"></Modal>}
+    </main>
   );
 }
