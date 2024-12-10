@@ -5,6 +5,8 @@ import './globals.css';
 import '@react95/core/GlobalStyle';
 import '@react95/core/themes/win95.css';
 import React from 'react';
+import FolderButton from './component/folder-button';
+import Footer from './footer';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -32,7 +34,13 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <main className="p-8 flex">
+          <aside>
+            <FolderButton />
+          </aside>
+          {children}
+          <Footer />
+        </main>
       </body>
     </html>
   );

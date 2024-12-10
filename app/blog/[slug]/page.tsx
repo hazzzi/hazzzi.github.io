@@ -1,7 +1,7 @@
-import { CustomMDX } from '@/app/components/mdx';
 import { baseUrl } from '@/app/sitemap';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { CustomMDX } from '../components/mdx';
 import { formatDate, getBlogPosts } from '../utils';
 
 export async function generateStaticParams() {
