@@ -1,18 +1,14 @@
 'use client';
-import { Frame, Modal } from '@react95/core';
+import { Modal } from '@react95/core';
 import { IListProps } from '@react95/core/List';
 import { Folder } from '@react95/icons';
-import {
-  ElementType,
-  JSXElementConstructor,
-  PropsWithChildren,
-  ReactElement,
-} from 'react';
+import { JSXElementConstructor, PropsWithChildren, ReactElement } from 'react';
+import { Frame } from '../component/frame';
 
 type Props = {};
 
 // Frame을 명시적으로 ReactElement를 반환하는 컴포넌트로 타입 지정
-const StyledFrame: ElementType = Frame as unknown as ElementType;
+
 type List = ReactElement<IListProps, string | JSXElementConstructor<any>>;
 
 const layout = ({ children }: PropsWithChildren<unknown>) => {
@@ -33,9 +29,15 @@ const layout = ({ children }: PropsWithChildren<unknown>) => {
           },
         }}
       >
-        <StyledFrame className="py-4 px-2"  width="70vw" height="50vh" bg="white" boxShadow="in">
+        <Frame
+          className="py-4 px-2"
+          width="70vw"
+          height="50vh"
+          bg="white"
+          boxShadow="in"
+        >
           {children}
-        </StyledFrame>
+        </Frame>
       </Modal>
     </section>
   );
