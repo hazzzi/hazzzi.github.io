@@ -5,7 +5,7 @@ const POSTS_DIR = path.join(__dirname, "posts");
 const DOCS_DIR = path.join(__dirname, "docs");
 const TEMPLATE_PATH = path.join(__dirname, "template.html");
 
-// ── Frontmatter 파서 ──────────────────────────────────
+// ── Frontmatter ───────────────────────────────────────
 
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
@@ -15,17 +15,15 @@ function parseFrontmatter(content) {
   match[1].split("\n").forEach((line) => {
     const idx = line.indexOf(":");
     if (idx === -1) return;
-    const key = line.slice(0, idx).trim();
-    const val = line.slice(idx + 1).trim();
-    meta[key] = val;
+    meta[line.slice(0, idx).trim()] = line.slice(idx + 1).trim();
   });
 
   return { meta, body: match[2] };
 }
 
-// ── 마크다운 → HTML 변환기 ────────────────────────────
+// ── Markdown → HTML ───────────────────────────────────
 
-function escapeHtml(str) {
+function esc(str) {
   return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -33,11 +31,19 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
-function parseInline(text) {
-  // 인라인 코드 (다른 변환보다 먼저 처리)
-  text = text.replace(/`([^`]+)`/g, (_, code) => `<code>${escapeHtml(code)}</code>`);
+function inline(text) {
+  // 인라인 코드를 먼저 보호 (내부 마크업 변환 방지)
+  const codes = [];
+  text = text.replace(/`([^`]+)`/g, (_, code) => {
+    codes.push(`<code>${esc(code)}</code>`);
+    return `\x00CODE${codes.length - 1}\x00`;
+  });
+
   // 이미지
-  text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+  text = text.replace(
+    /!\[([^\]]*)\]\(([^)]+)\)/g,
+    '<img src="$2" alt="$1">'
+  );
   // 링크
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
   // 볼드
@@ -49,12 +55,41 @@ function parseInline(text) {
   // 취소선
   text = text.replace(/~~(.+?)~~/g, "<del>$1</del>");
 
+  // 인라인 코드 복원
+  text = text.replace(/\x00CODE(\d+)\x00/g, (_, i) => codes[i]);
+
   return text;
+}
+
+function isTableRow(line) {
+  return line.trim().startsWith("|") && line.trim().endsWith("|");
+}
+
+function isSeparatorRow(line) {
+  return /^\|[\s:]*-{3,}[\s:]*(\|[\s:]*-{3,}[\s:]*)*\|$/.test(line.trim());
+}
+
+function parseTableCells(line) {
+  return line
+    .trim()
+    .slice(1, -1)
+    .split("|")
+    .map((c) => c.trim());
+}
+
+function parseAlignments(line) {
+  return parseTableCells(line).map((cell) => {
+    const left = cell.startsWith(":");
+    const right = cell.endsWith(":");
+    if (left && right) return ' align="center"';
+    if (right) return ' align="right"';
+    return "";
+  });
 }
 
 function markdownToHtml(md) {
   const lines = md.split("\n");
-  const result = [];
+  const out = [];
   let i = 0;
 
   while (i < lines.length) {
@@ -69,43 +104,77 @@ function markdownToHtml(md) {
     // 코드 블록
     if (line.trim().startsWith("```")) {
       const lang = line.trim().slice(3).trim();
-      const codeLines = [];
+      const buf = [];
       i++;
       while (i < lines.length && !lines[i].trim().startsWith("```")) {
-        codeLines.push(lines[i]);
+        buf.push(lines[i]);
         i++;
       }
-      i++; // 닫는 ``` 건너뛰기
-      const escaped = escapeHtml(codeLines.join("\n"));
-      result.push(`<pre><code>${escaped}</code></pre>`);
+      i++;
+      out.push(
+        `<figure>` +
+          `<pre><code>${esc(buf.join("\n"))}</code></pre>` +
+          (lang ? `<figcaption>${esc(lang)}</figcaption>` : "") +
+          `</figure>`
+      );
+      continue;
+    }
+
+    // 테이블
+    if (
+      isTableRow(line) &&
+      i + 1 < lines.length &&
+      isSeparatorRow(lines[i + 1])
+    ) {
+      const headers = parseTableCells(line);
+      const aligns = parseAlignments(lines[i + 1]);
+      i += 2;
+
+      let table = "<table>\n<thead>\n<tr>\n";
+      headers.forEach(
+        (h, j) => (table += `<th${aligns[j] || ""}>${inline(h)}</th>\n`)
+      );
+      table += "</tr>\n</thead>\n<tbody>\n";
+
+      while (i < lines.length && isTableRow(lines[i])) {
+        const cells = parseTableCells(lines[i]);
+        table += "<tr>\n";
+        cells.forEach(
+          (c, j) => (table += `<td${aligns[j] || ""}>${inline(c)}</td>\n`)
+        );
+        table += "</tr>\n";
+        i++;
+      }
+
+      table += "</tbody>\n</table>";
+      out.push(table);
       continue;
     }
 
     // 헤더
-    const headerMatch = line.match(/^(#{1,6})\s+(.+)/);
-    if (headerMatch) {
-      const level = headerMatch[1].length;
-      result.push(`<h${level}>${parseInline(headerMatch[2])}</h${level}>`);
+    const hm = line.match(/^(#{1,6})\s+(.+)/);
+    if (hm) {
+      const lvl = hm[1].length;
+      out.push(`<h${lvl}>${inline(hm[2])}</h${lvl}>`);
       i++;
       continue;
     }
 
     // 수평선
     if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line.trim())) {
-      result.push("<hr>");
+      out.push("<hr>");
       i++;
       continue;
     }
 
     // 인용문
     if (line.trim().startsWith(">")) {
-      const quoteLines = [];
+      const buf = [];
       while (i < lines.length && lines[i].trim().startsWith(">")) {
-        quoteLines.push(lines[i].replace(/^>\s?/, ""));
+        buf.push(lines[i].replace(/^>\s?/, ""));
         i++;
       }
-      const inner = markdownToHtml(quoteLines.join("\n"));
-      result.push(`<blockquote>${inner}</blockquote>`);
+      out.push(`<blockquote>${markdownToHtml(buf.join("\n"))}</blockquote>`);
       continue;
     }
 
@@ -116,9 +185,11 @@ function markdownToHtml(md) {
         items.push(lines[i].replace(/^[\s]*[-*+]\s/, ""));
         i++;
       }
-      result.push("<ul>");
-      items.forEach((item) => result.push(`<li>${parseInline(item)}</li>`));
-      result.push("</ul>");
+      out.push(
+        "<ul>\n" +
+          items.map((item) => `<li>${inline(item)}</li>`).join("\n") +
+          "\n</ul>"
+      );
       continue;
     }
 
@@ -129,14 +200,16 @@ function markdownToHtml(md) {
         items.push(lines[i].replace(/^\d+\.\s/, ""));
         i++;
       }
-      result.push("<ol>");
-      items.forEach((item) => result.push(`<li>${parseInline(item)}</li>`));
-      result.push("</ol>");
+      out.push(
+        "<ol>\n" +
+          items.map((item) => `<li>${inline(item)}</li>`).join("\n") +
+          "\n</ol>"
+      );
       continue;
     }
 
     // 문단
-    const paraLines = [];
+    const buf = [];
     while (
       i < lines.length &&
       lines[i].trim() !== "" &&
@@ -145,35 +218,53 @@ function markdownToHtml(md) {
       !lines[i].trim().startsWith(">") &&
       !/^[\s]*[-*+]\s/.test(lines[i]) &&
       !/^\d+\.\s/.test(lines[i]) &&
-      !/^(-{3,}|\*{3,}|_{3,})\s*$/.test(lines[i].trim())
+      !/^(-{3,}|\*{3,}|_{3,})\s*$/.test(lines[i].trim()) &&
+      !isTableRow(lines[i])
     ) {
-      paraLines.push(lines[i]);
+      buf.push(lines[i]);
       i++;
     }
-    if (paraLines.length > 0) {
-      result.push(`<p>${parseInline(paraLines.join("\n"))}</p>`);
+
+    if (buf.length > 0) {
+      const text = buf.join("\n");
+      // 이미지만 있는 문단은 <figure>로 감싸기
+      if (/^!\[([^\]]*)\]\(([^)]+)\)$/.test(text.trim())) {
+        const m = text.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        out.push(
+          `<figure>` +
+            `<img src="${m[2]}" alt="${esc(m[1])}">` +
+            (m[1] ? `<figcaption>${esc(m[1])}</figcaption>` : "") +
+            `</figure>`
+        );
+      } else {
+        out.push(`<p>${inline(text)}</p>`);
+      }
     }
   }
 
-  return result.join("\n");
+  return out.join("\n");
 }
 
-// ── 빌드 프로세스 ─────────────────────────────────────
+// ── 날짜 포맷 ─────────────────────────────────────────
+
+function formatDate(dateStr) {
+  const [y, m, d] = dateStr.split("-");
+  return `${y}년 ${Number(m)}월 ${Number(d)}일`;
+}
+
+// ── 빌드 ──────────────────────────────────────────────
 
 function build() {
-  // 템플릿 읽기
   const template = fs.readFileSync(TEMPLATE_PATH, "utf-8");
 
-  // docs/ 초기화
   if (fs.existsSync(DOCS_DIR)) {
     fs.rmSync(DOCS_DIR, { recursive: true });
   }
   fs.mkdirSync(path.join(DOCS_DIR, "posts"), { recursive: true });
 
-  // posts/ 읽기
   if (!fs.existsSync(POSTS_DIR)) {
-    console.log("posts/ 폴더가 없습니다. 생성합니다.");
     fs.mkdirSync(POSTS_DIR, { recursive: true });
+    console.log("posts/ 폴더가 비어 있습니다.");
     return;
   }
 
@@ -181,7 +272,7 @@ function build() {
     .readdirSync(POSTS_DIR)
     .filter((f) => f.endsWith(".md"))
     .sort()
-    .reverse(); // 최신 글이 위로
+    .reverse();
 
   const posts = [];
 
@@ -195,53 +286,52 @@ function build() {
     const description = meta.description || "";
     const htmlBody = markdownToHtml(body);
 
-    // 개별 포스트 페이지
     const postContent = `<article>
 <header>
-<h1>${escapeHtml(title)}</h1>
-<p><time datetime="${date}">${date}</time></p>
+<h1>${esc(title)}</h1>
+<time datetime="${date}">${formatDate(date)}</time>
+${description ? `<p>${esc(description)}</p>` : ""}
 </header>
+<hr>
 ${htmlBody}
-<footer>
-<p><a href="/">← 목록으로</a></p>
-</footer>
+<nav>
+<p><a href="/">← 목록으로 돌아가기</a></p>
+</nav>
 </article>`;
 
     const postHtml = template
-      .replace("{{title}}", escapeHtml(title))
+      .replace("{{title}}", `${esc(title)} — hazzzi`)
+      .replace("{{description}}", esc(description || title))
       .replace("{{content}}", postContent);
 
     fs.writeFileSync(path.join(DOCS_DIR, "posts", `${slug}.html`), postHtml);
     posts.push({ title, date, description, slug });
-
-    console.log(`  ✓ ${file} → docs/posts/${slug}.html`);
+    console.log(`  ✓ ${file}`);
   }
 
-  // 인덱스 페이지
+  // 인덱스
   let listHtml = "";
   if (posts.length === 0) {
-    listHtml = "<p>아직 작성된 글이 없습니다.</p>";
+    listHtml = "<p>아직 글이 없습니다.</p>";
   } else {
-    listHtml = "<ul>\n";
-    for (const post of posts) {
-      listHtml += `<li><time datetime="${post.date}">${post.date}</time> — <a href="/posts/${post.slug}.html">${escapeHtml(post.title)}</a>`;
-      if (post.description) {
-        listHtml += `<br><small>${escapeHtml(post.description)}</small>`;
-      }
-      listHtml += "</li>\n";
+    listHtml = "<dl>\n";
+    for (const p of posts) {
+      listHtml += `<dt><a href="/posts/${p.slug}.html">${esc(p.title)}</a></dt>\n`;
+      listHtml += `<dd><time datetime="${p.date}">${formatDate(p.date)}</time>`;
+      if (p.description) listHtml += ` — ${esc(p.description)}`;
+      listHtml += `</dd>\n`;
     }
-    listHtml += "</ul>";
+    listHtml += "</dl>";
   }
 
-  const indexContent = `<h2>글 목록</h2>\n${listHtml}`;
-
+  const indexContent = `<section>\n${listHtml}\n</section>`;
   const indexHtml = template
-    .replace("{{title}}", "hazzzi blog")
+    .replace("{{title}}", "hazzzi")
+    .replace("{{description}}", "hazzzi의 개발 블로그")
     .replace("{{content}}", indexContent);
 
   fs.writeFileSync(path.join(DOCS_DIR, "index.html"), indexHtml);
-
-  console.log(`\n빌드 완료: ${posts.length}개의 글 → docs/`);
+  console.log(`\n${posts.length}개 글 빌드 완료`);
 }
 
 build();
