@@ -309,24 +309,23 @@ ${htmlBody}
   }
 
   // 인덱스
-  let aboutHtml =
-    `<blockquote>☞ 지금: 이 블로그 만드는 중</blockquote>\n`;
-
   let listHtml = "";
   if (posts.length === 0) {
     listHtml = "<p>아직 글이 없습니다.</p>";
   } else {
+    listHtml += `<ul>\n`;
     for (const p of posts) {
-      listHtml += `<fieldset>\n`;
-      listHtml += `<legend>${formatDate(p.date)}</legend>\n`;
-      listHtml += `<p><a href="/posts/${p.slug}.html"><strong>${esc(p.title)}</strong></a></p>\n`;
-      if (p.description) listHtml += `<p><small>${esc(p.description)}</small></p>\n`;
-      if (p.tags) listHtml += `<p>${p.tags.map(t => `<kbd>#${esc(t)}</kbd>`).join(" ")}</p>\n`;
-      listHtml += `</fieldset>\n`;
+      listHtml += `<li>\n`;
+      listHtml += `<p>${formatDate(p.date)} — <a href="/posts/${p.slug}.html"><strong>${esc(p.title)}</strong></a>`;
+      if (p.description) listHtml += `<br><small>${esc(p.description)}</small>`;
+      if (p.tags) listHtml += `<br>${p.tags.map(t => `<kbd>#${esc(t)}</kbd>`).join(" ")}`;
+      listHtml += `</p>\n`;
+      listHtml += `</li>\n`;
     }
+    listHtml += `</ul>\n`;
   }
 
-  const indexContent = aboutHtml + listHtml;
+  const indexContent = listHtml;
 
   const indexHtml = template
     .replace("{{title}}", "hazzzi")
