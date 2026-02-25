@@ -287,13 +287,13 @@ function build() {
     const htmlBody = markdownToHtml(body);
 
     const postContent = `<article>
-<header>
-<h1>${esc(title)}</h1>
+<fieldset>
+<legend> ${esc(title)} </legend>
 <time datetime="${date}">${formatDate(date)}</time>
-${description ? `<p>${esc(description)}</p>` : ""}
-</header>
-<hr>
+${description ? `<p><em>${esc(description)}</em></p>` : ""}
+</fieldset>
 ${htmlBody}
+<hr>
 <nav>
 <p><a href="/">← 목록으로 돌아가기</a></p>
 </nav>
@@ -310,27 +310,29 @@ ${htmlBody}
   }
 
   // 인덱스
+  let aboutHtml =
+    `<details>\n` +
+    `<summary><strong>about me</strong></summary>\n` +
+    `<blockquote>\n` +
+    `<p>개발하고 글 씁니다.<br>가끔은 삽질 기록도 남깁니다.</p>\n` +
+    `</blockquote>\n` +
+    `</details>\n`;
+
   let listHtml = "";
   if (posts.length === 0) {
     listHtml = "<p>아직 글이 없습니다.</p>";
   } else {
+    listHtml += `<h2>.: recent posts :.</h2>\n`;
     for (const p of posts) {
-      listHtml += `<section>\n`;
-      listHtml += `<h2><a href="/posts/${p.slug}.html">${esc(p.title)}</a></h2>\n`;
-      listHtml += `<p><time datetime="${p.date}">${formatDate(p.date)}</time>`;
-      if (p.description) listHtml += ` — ${esc(p.description)}`;
-      listHtml += `</p>\n</section>\n`;
+      listHtml += `<fieldset>\n`;
+      listHtml += `<legend> <time datetime="${p.date}">${formatDate(p.date)}</time> </legend>\n`;
+      listHtml += `<h3><a href="/posts/${p.slug}.html">${esc(p.title)}</a></h3>\n`;
+      if (p.description) listHtml += `<p>${esc(p.description)}</p>\n`;
+      listHtml += `</fieldset>\n`;
     }
   }
 
-  const indexContent =
-    `<pre aria-hidden="true">\n` +
-    `. . . . . . . . . . . . . . .\n` +
-    `  개발하고 글 씁니다.\n` +
-    `  가끔은 삽질 기록도.\n` +
-    `. . . . . . . . . . . . . . .\n` +
-    `</pre>\n` +
-    listHtml;
+  const indexContent = aboutHtml + listHtml;
 
   const indexHtml = template
     .replace("{{title}}", "hazzzi")
