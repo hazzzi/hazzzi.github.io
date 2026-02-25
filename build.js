@@ -252,9 +252,25 @@ function formatDate(dateStr) {
   return `${y}.${m}.${d}`;
 }
 
+// ── GitHub Issue 댓글 ────────────────────────────────
+
+const ISSUE_URL = "https://api.github.com/repos/hazzzi/hazzzi.github.io/issues/2/comments";
+
+async function fetchComments() {
+  try {
+    const res = await fetch(ISSUE_URL, {
+      headers: { "User-Agent": "hazzzi-blog-builder" },
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+
 // ── 빌드 ──────────────────────────────────────────────
 
-function build() {
+async function build() {
   const template = fs.readFileSync(TEMPLATE_PATH, "utf-8");
 
   if (fs.existsSync(DOCS_DIR)) {
@@ -334,6 +350,33 @@ ${htmlBody}
 
   fs.writeFileSync(path.join(DOCS_DIR, "index.html"), indexHtml);
   console.log(`\n${posts.length}개 글 빌드 완료`);
+
+  // 방명록
+  const comments = await fetchComments();
+  let guestbookHtml = `<h1>발자취 🐾</h1>\n`;
+  guestbookHtml += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/2">발자취 남기기 →</a></p>\n`;
+
+  if (comments.length === 0) {
+    guestbookHtml += `<p>아직 발자취가 없습니다.</p>\n`;
+  } else {
+    for (const c of comments) {
+      const date = formatDate(c.created_at.slice(0, 10));
+      guestbookHtml += `<blockquote>\n`;
+      guestbookHtml += `<p>${esc(c.body)}</p>\n`;
+      guestbookHtml += `<p><small><a href="${c.user.html_url}">${esc(c.user.login)}</a> · ${date}</small></p>\n`;
+      guestbookHtml += `</blockquote>\n`;
+    }
+  }
+
+  guestbookHtml += `<p><a href="/">← 글 목록</a></p>\n`;
+
+  const guestbookPage = template
+    .replace("{{title}}", "발자취 — hazzzi")
+    .replace("{{description}}", "발자취를 남겨주세요")
+    .replace("{{content}}", guestbookHtml);
+
+  fs.writeFileSync(path.join(DOCS_DIR, "guestbook.html"), guestbookPage);
+  console.log(`발자취 ${comments.length}개 렌더 완료`);
 }
 
 build();
