@@ -287,16 +287,10 @@ function build() {
     const htmlBody = markdownToHtml(body);
 
     const postContent = `<article>
-<fieldset>
-<legend> ${esc(title)} </legend>
-<time datetime="${date}">${formatDate(date)}</time>
-${description ? `<p><em>${esc(description)}</em></p>` : ""}
-</fieldset>
+<h1>${esc(title)}</h1>
+<p><time datetime="${date}">${formatDate(date)}</time></p>
 ${htmlBody}
-<hr>
-<nav>
-<p><a href="/">← 목록으로 돌아가기</a></p>
-</nav>
+<p><a href="/">← home</a></p>
 </article>`;
 
     const postHtml = template
@@ -312,22 +306,19 @@ ${htmlBody}
   // 인덱스
   let aboutHtml =
     `<details>\n` +
-    `<summary><strong>about me</strong></summary>\n` +
-    `<blockquote>\n` +
-    `<p>개발하고 글 씁니다.<br>가끔은 삽질 기록도 남깁니다.</p>\n` +
-    `</blockquote>\n` +
+    `<summary>about</summary>\n` +
+    `<p>개발하고 글 씁니다. 가끔은 삽질 기록도.</p>\n` +
     `</details>\n`;
 
   let listHtml = "";
   if (posts.length === 0) {
     listHtml = "<p>아직 글이 없습니다.</p>";
   } else {
-    listHtml += `<h2>.: recent posts :.</h2>\n`;
     for (const p of posts) {
       listHtml += `<fieldset>\n`;
-      listHtml += `<legend> <time datetime="${p.date}">${formatDate(p.date)}</time> </legend>\n`;
-      listHtml += `<h3><a href="/posts/${p.slug}.html">${esc(p.title)}</a></h3>\n`;
-      if (p.description) listHtml += `<p>${esc(p.description)}</p>\n`;
+      listHtml += `<legend>${formatDate(p.date)}</legend>\n`;
+      listHtml += `<p><a href="/posts/${p.slug}.html"><strong>${esc(p.title)}</strong></a></p>\n`;
+      if (p.description) listHtml += `<p><small>${esc(p.description)}</small></p>\n`;
       listHtml += `</fieldset>\n`;
     }
   }
