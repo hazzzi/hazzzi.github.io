@@ -254,11 +254,10 @@ function formatDate(dateStr) {
 
 // ── GitHub Issue 댓글 ────────────────────────────────
 
-const ISSUE_URL = "https://api.github.com/repos/hazzzi/hazzzi.github.io/issues/2/comments";
-
-async function fetchComments() {
+async function fetchComments(issueNumber) {
   try {
-    const res = await fetch(ISSUE_URL, {
+    const url = `https://api.github.com/repos/hazzzi/hazzzi.github.io/issues/${issueNumber}/comments`;
+    const res = await fetch(url, {
       headers: { "User-Agent": "hazzzi-blog-builder" },
     });
     if (!res.ok) return [];
@@ -266,6 +265,18 @@ async function fetchComments() {
   } catch {
     return [];
   }
+}
+
+function renderComments(comments) {
+  let html = "";
+  for (const c of comments) {
+    const date = formatDate(c.created_at.slice(0, 10));
+    html += `<blockquote>\n`;
+    html += `<p>${esc(c.body)}</p>\n`;
+    html += `<p><small><a href="${c.user.html_url}">${esc(c.user.login)}</a> · ${date}</small></p>\n`;
+    html += `</blockquote>\n`;
+  }
+  return html;
 }
 
 // ── 빌드 ──────────────────────────────────────────────
@@ -301,7 +312,18 @@ async function build() {
     const date = meta.date || slug.slice(0, 10);
     const description = meta.description || "";
     const tags = meta.tags ? meta.tags.split(",").map(t => t.trim()).filter(Boolean) : null;
+    const issueNum = meta.issue || null;
     const htmlBody = markdownToHtml(body);
+
+    let commentsHtml = "";
+    if (issueNum) {
+      const comments = await fetchComments(issueNum);
+      commentsHtml += `<hr>\n<h2>댓글</h2>\n`;
+      if (comments.length > 0) {
+        commentsHtml += renderComments(comments);
+      }
+      commentsHtml += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${issueNum}">댓글 남기기 →</a></p>\n`;
+    }
 
     const tagsInline = tags ? ` · ${tags.map(t => `#${t}`).join(" ")}` : "";
     const postContent = `<article>
@@ -311,6 +333,7 @@ async function build() {
 ${description ? `<p>${esc(description)}</p>` : ""}
 </details>
 ${htmlBody}
+${commentsHtml}
 <nav><a href="/">← 글 목록</a></nav>
 </article>`;
 
@@ -352,20 +375,14 @@ ${htmlBody}
   console.log(`\n${posts.length}개 글 빌드 완료`);
 
   // 방명록
-  const comments = await fetchComments();
+  const guestbookComments = await fetchComments(2);
   let guestbookHtml = `<h1>발자취 🐾</h1>\n`;
   guestbookHtml += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/2">발자취 남기기 →</a></p>\n`;
 
-  if (comments.length === 0) {
+  if (guestbookComments.length === 0) {
     guestbookHtml += `<p>아직 발자취가 없습니다.</p>\n`;
   } else {
-    for (const c of comments) {
-      const date = formatDate(c.created_at.slice(0, 10));
-      guestbookHtml += `<blockquote>\n`;
-      guestbookHtml += `<p>${esc(c.body)}</p>\n`;
-      guestbookHtml += `<p><small><a href="${c.user.html_url}">${esc(c.user.login)}</a> · ${date}</small></p>\n`;
-      guestbookHtml += `</blockquote>\n`;
-    }
+    guestbookHtml += renderComments(guestbookComments);
   }
 
   guestbookHtml += `<p><a href="/">← 글 목록</a></p>\n`;
@@ -376,7 +393,7 @@ ${htmlBody}
     .replace("{{content}}", guestbookHtml);
 
   fs.writeFileSync(path.join(DOCS_DIR, "guestbook.html"), guestbookPage);
-  console.log(`발자취 ${comments.length}개 렌더 완료`);
+  console.log(`발자취 ${guestbookComments.length}개 렌더 완료`);
 }
 
 build();

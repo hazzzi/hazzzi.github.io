@@ -2,6 +2,7 @@
 title: No CSS Club에 가입했다
 date: 2026-02-25
 description: CSS를 버리고 얻은 것들
+issue: 3
 ---
 
 ## 시작

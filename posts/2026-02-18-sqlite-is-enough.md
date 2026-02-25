@@ -2,6 +2,7 @@
 title: SQLite면 충분하다
 date: 2026-02-18
 description: 사이드 프로젝트에 PostgreSQL이 필요한가
+issue: 4
 ---
 
 ## 습관적인 선택
