@@ -249,7 +249,7 @@ function markdownToHtml(md) {
 
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split("-");
-  return `${y}년 ${Number(m)}월 ${Number(d)}일`;
+  return `${y}.${m}.${d}`;
 }
 
 // ── 빌드 ──────────────────────────────────────────────
@@ -284,13 +284,18 @@ function build() {
     const title = meta.title || slug;
     const date = meta.date || slug.slice(0, 10);
     const description = meta.description || "";
+    const tags = meta.tags ? meta.tags.split(",").map(t => t.trim()).filter(Boolean) : null;
     const htmlBody = markdownToHtml(body);
 
+    const tagsInline = tags ? ` · ${tags.map(t => `#${t}`).join(" ")}` : "";
     const postContent = `<article>
 <h1>${esc(title)}</h1>
-<p><time datetime="${date}">${formatDate(date)}</time></p>
+<details open>
+<summary>${formatDate(date)}${tagsInline}</summary>
+${description ? `<p>${esc(description)}</p>` : ""}
+</details>
 ${htmlBody}
-<p><a href="/">← home</a></p>
+<nav><a href="/">← 글 목록</a></nav>
 </article>`;
 
     const postHtml = template
@@ -299,16 +304,13 @@ ${htmlBody}
       .replace("{{content}}", postContent);
 
     fs.writeFileSync(path.join(DOCS_DIR, "posts", `${slug}.html`), postHtml);
-    posts.push({ title, date, description, slug });
+    posts.push({ title, date, description, slug, tags });
     console.log(`  ✓ ${file}`);
   }
 
   // 인덱스
   let aboutHtml =
-    `<details>\n` +
-    `<summary>about</summary>\n` +
-    `<p>개발하고 글 씁니다. 가끔은 삽질 기록도.</p>\n` +
-    `</details>\n`;
+    `<blockquote>☞ 지금: 이 블로그 만드는 중</blockquote>\n`;
 
   let listHtml = "";
   if (posts.length === 0) {
@@ -319,6 +321,7 @@ ${htmlBody}
       listHtml += `<legend>${formatDate(p.date)}</legend>\n`;
       listHtml += `<p><a href="/posts/${p.slug}.html"><strong>${esc(p.title)}</strong></a></p>\n`;
       if (p.description) listHtml += `<p><small>${esc(p.description)}</small></p>\n`;
+      if (p.tags) listHtml += `<p>${p.tags.map(t => `<kbd>#${esc(t)}</kbd>`).join(" ")}</p>\n`;
       listHtml += `</fieldset>\n`;
     }
   }
