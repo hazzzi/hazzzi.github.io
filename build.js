@@ -314,17 +314,24 @@ ${htmlBody}
   if (posts.length === 0) {
     listHtml = "<p>아직 글이 없습니다.</p>";
   } else {
-    listHtml = "<dl>\n";
     for (const p of posts) {
-      listHtml += `<dt><a href="/posts/${p.slug}.html">${esc(p.title)}</a></dt>\n`;
-      listHtml += `<dd><time datetime="${p.date}">${formatDate(p.date)}</time>`;
+      listHtml += `<section>\n`;
+      listHtml += `<h2><a href="/posts/${p.slug}.html">${esc(p.title)}</a></h2>\n`;
+      listHtml += `<p><time datetime="${p.date}">${formatDate(p.date)}</time>`;
       if (p.description) listHtml += ` — ${esc(p.description)}`;
-      listHtml += `</dd>\n`;
+      listHtml += `</p>\n</section>\n`;
     }
-    listHtml += "</dl>";
   }
 
-  const indexContent = `<section>\n${listHtml}\n</section>`;
+  const indexContent =
+    `<pre aria-hidden="true">\n` +
+    `. . . . . . . . . . . . . . .\n` +
+    `  개발하고 글 씁니다.\n` +
+    `  가끔은 삽질 기록도.\n` +
+    `. . . . . . . . . . . . . . .\n` +
+    `</pre>\n` +
+    listHtml;
+
   const indexHtml = template
     .replace("{{title}}", "hazzzi")
     .replace("{{description}}", "hazzzi의 개발 블로그")
