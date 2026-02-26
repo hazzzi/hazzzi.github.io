@@ -4,6 +4,8 @@ const path = require("path");
 const POSTS_DIR = path.join(__dirname, "posts");
 const DOCS_DIR = path.join(__dirname, "docs");
 const TEMPLATE_PATH = path.join(__dirname, "template.html");
+const GUESTBOOK_ISSUE = 2;
+const BASE_URL = "https://hazzzi.github.io";
 
 // ── Frontmatter ───────────────────────────────────────
 
@@ -31,13 +33,27 @@ function esc(str) {
     .replace(/"/g, "&quot;");
 }
 
-function inline(text) {
+function slugify(text) {
+  return text
+    .replace(/[<>]/g, "")
+    .toLowerCase()
+    .replace(/[^\w\s가-힣-]/g, "")
+    .replace(/\s+/g, "-");
+}
+
+function inline(text, refs = new Map()) {
   // 인라인 코드를 먼저 보호 (내부 마크업 변환 방지)
   const codes = [];
   text = text.replace(/`([^`]+)`/g, (_, code) => {
     codes.push(`<code>${esc(code)}</code>`);
     return `\x00CODE${codes.length - 1}\x00`;
   });
+
+  // HTML 특수문자 이스케이프
+  text = esc(text);
+
+  // 줄바꿈 (trailing 2-space)
+  text = text.replace(/ {2,}\n/g, "<br>\n");
 
   // 이미지
   text = text.replace(
@@ -46,6 +62,11 @@ function inline(text) {
   );
   // 링크
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // 레퍼런스 링크
+  text = text.replace(/\[([^\]]+)\]\[([^\]]*)\]/g, (_, label, ref) => {
+    const url = refs.get((ref || label).toLowerCase());
+    return url ? `<a href="${esc(url)}">${label}</a>` : _;
+  });
   // 볼드
   text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
   text = text.replace(/__(.+?)__/g, "<strong>$1</strong>");
@@ -87,8 +108,55 @@ function parseAlignments(line) {
   });
 }
 
-function markdownToHtml(md) {
-  const lines = md.split("\n");
+function parseList(lines, idx, baseIndent, refs) {
+  const first = lines[idx].trimStart();
+  const isOrdered = /^\d+\.\s/.test(first);
+  const tag = isOrdered ? "ol" : "ul";
+  let html = `<${tag}>\n`;
+
+  while (idx < lines.length) {
+    const line = lines[idx];
+    if (line.trim() === "") { idx++; continue; }
+
+    const indent = line.length - line.trimStart().length;
+    if (indent < baseIndent) break;
+
+    const stripped = line.trimStart();
+    const marker = stripped.match(/^(?:[-*+]|\d+\.)\s+(.*)/);
+
+    if (indent === baseIndent && !marker) break;
+
+    if (indent > baseIndent) {
+      if (marker) {
+        const nested = parseList(lines, idx, indent, refs);
+        html = html.replace(/<\/li>\n$/, "\n" + nested.html + "\n</li>\n");
+        idx = nested.endIdx;
+      } else {
+        html = html.replace(/<\/li>\n$/, " " + inline(stripped, refs) + "</li>\n");
+        idx++;
+      }
+      continue;
+    }
+
+    html += `<li>${inline(marker[1], refs)}</li>\n`;
+    idx++;
+  }
+
+  html += `</${tag}>`;
+  return { html, endIdx: idx };
+}
+
+function markdownToHtml(md, parentRefs = new Map()) {
+  const refs = new Map(parentRefs);
+  const lines = [];
+  for (const line of md.split("\n")) {
+    const rm = line.match(/^\[([^\]]+)\]:\s+(.+)$/);
+    if (rm) {
+      refs.set(rm[1].toLowerCase(), rm[2].trim());
+    } else {
+      lines.push(line);
+    }
+  }
   const out = [];
   let i = 0;
 
@@ -112,10 +180,11 @@ function markdownToHtml(md) {
       }
       i++;
       out.push(
-        `<figure>` +
-          `<pre><code>${esc(buf.join("\n"))}</code></pre>` +
-          (lang ? `<figcaption>${esc(lang)}</figcaption>` : "") +
-          `</figure>`
+        lang
+          ? `<fieldset><legend>${esc(lang)}</legend>` +
+            `<pre><code>${esc(buf.join("\n"))}</code></pre>` +
+            `</fieldset>`
+          : `<pre><code>${esc(buf.join("\n"))}</code></pre>`
       );
       continue;
     }
@@ -130,9 +199,9 @@ function markdownToHtml(md) {
       const aligns = parseAlignments(lines[i + 1]);
       i += 2;
 
-      let table = "<table>\n<thead>\n<tr>\n";
+      let table = '<table border="1" cellpadding="6" cellspacing="0" width="100%">\n<thead>\n<tr>\n';
       headers.forEach(
-        (h, j) => (table += `<th${aligns[j] || ""}>${inline(h)}</th>\n`)
+        (h, j) => (table += `<th${aligns[j] || ""}>${inline(h, refs)}</th>\n`)
       );
       table += "</tr>\n</thead>\n<tbody>\n";
 
@@ -140,7 +209,7 @@ function markdownToHtml(md) {
         const cells = parseTableCells(lines[i]);
         table += "<tr>\n";
         cells.forEach(
-          (c, j) => (table += `<td${aligns[j] || ""}>${inline(c)}</td>\n`)
+          (c, j) => (table += `<td${aligns[j] || ""}>${inline(c, refs)}</td>\n`)
         );
         table += "</tr>\n";
         i++;
@@ -155,7 +224,7 @@ function markdownToHtml(md) {
     const hm = line.match(/^(#{1,6})\s+(.+)/);
     if (hm) {
       const lvl = hm[1].length;
-      out.push(`<h${lvl}>${inline(hm[2])}</h${lvl}>`);
+      out.push(`<h${lvl} id="${slugify(hm[2])}">${inline(hm[2], refs)}</h${lvl}>`);
       i++;
       continue;
     }
@@ -174,37 +243,21 @@ function markdownToHtml(md) {
         buf.push(lines[i].replace(/^>\s?/, ""));
         i++;
       }
-      out.push(`<blockquote>${markdownToHtml(buf.join("\n"))}</blockquote>`);
-      continue;
-    }
-
-    // 비순서 목록
-    if (/^[\s]*[-*+]\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^[\s]*[-*+]\s/.test(lines[i])) {
-        items.push(lines[i].replace(/^[\s]*[-*+]\s/, ""));
-        i++;
-      }
       out.push(
-        "<ul>\n" +
-          items.map((item) => `<li>${inline(item)}</li>`).join("\n") +
-          "\n</ul>"
+        `<table border="0" cellpadding="0" cellspacing="4"><tr>` +
+          `<td width="2" bgcolor="gray"></td>` +
+          `<td>${markdownToHtml(buf.join("\n"), refs)}</td>` +
+          `</tr></table>`
       );
       continue;
     }
 
-    // 순서 목록
-    if (/^\d+\.\s/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s/, ""));
-        i++;
-      }
-      out.push(
-        "<ol>\n" +
-          items.map((item) => `<li>${inline(item)}</li>`).join("\n") +
-          "\n</ol>"
-      );
+    // 리스트 (순서/비순서 통합)
+    const listMarker = line.match(/^(\s*)(?:[-*+]|\d+\.)\s/);
+    if (listMarker) {
+      const result = parseList(lines, i, listMarker[1].length, refs);
+      out.push(result.html);
+      i = result.endIdx;
       continue;
     }
 
@@ -216,8 +269,7 @@ function markdownToHtml(md) {
       !lines[i].trim().startsWith("#") &&
       !lines[i].trim().startsWith("```") &&
       !lines[i].trim().startsWith(">") &&
-      !/^[\s]*[-*+]\s/.test(lines[i]) &&
-      !/^\d+\.\s/.test(lines[i]) &&
+      !/^[\s]*(?:[-*+]|\d+\.)\s/.test(lines[i]) &&
       !/^(-{3,}|\*{3,}|_{3,})\s*$/.test(lines[i].trim()) &&
       !isTableRow(lines[i])
     ) {
@@ -237,7 +289,7 @@ function markdownToHtml(md) {
             `</figure>`
         );
       } else {
-        out.push(`<p>${inline(text)}</p>`);
+        out.push(`<p>${inline(text, refs)}</p>`);
       }
     }
   }
@@ -267,19 +319,139 @@ async function fetchComments(issueNumber) {
   }
 }
 
+async function fetchAllComments(issueNumbers) {
+  const unique = [...new Set(issueNumbers)];
+  const entries = await Promise.all(
+    unique.map(async (n) => [n, await fetchComments(n)])
+  );
+  return new Map(entries);
+}
+
 function renderComments(comments) {
   let html = "";
   for (const c of comments) {
     const date = formatDate(c.created_at.slice(0, 10));
     html += `<blockquote>\n`;
     html += `<p>${esc(c.body)}</p>\n`;
-    html += `<p><small><a href="${c.user.html_url}">${esc(c.user.login)}</a> · ${date}</small></p>\n`;
+    html += `<p><small><a href="${esc(c.user.html_url)}">${esc(c.user.login)}</a> · ${date}</small></p>\n`;
     html += `</blockquote>\n`;
   }
   return html;
 }
 
-// ── 빌드 ──────────────────────────────────────────────
+// ── 템플릿 ──────────────────────────────────────────
+
+function renderTemplate(tmpl, slots) {
+  return tmpl.replace(/\{\{(\w+)\}\}/g, (_, key) => slots[key] ?? "");
+}
+
+// ── 파싱: 문자열 → 데이터 (순수) ────────────────────
+
+function parsePost(file, raw) {
+  const { meta, body } = parseFrontmatter(raw);
+  const slug = file.replace(/\.md$/, "");
+  return {
+    slug,
+    title: meta.title || slug,
+    date: meta.date || slug.slice(0, 10),
+    description: meta.description || "",
+    tags: meta.tags
+      ? meta.tags.split(",").map((t) => t.trim()).filter(Boolean)
+      : null,
+    issue: meta.issue ? Number(meta.issue) : null,
+    htmlBody: markdownToHtml(body),
+  };
+}
+
+// ── 페이지 렌더 (순수: 데이터 → HTML) ───────────────
+
+function renderPostPage(template, post, comments) {
+  const { title, date, description, tags, issue, htmlBody } = post;
+
+  let commentsHtml = "";
+  if (issue != null) {
+    commentsHtml += `<hr>\n<h2>댓글</h2>\n`;
+    if (comments.length > 0) {
+      commentsHtml += renderComments(comments);
+    }
+    commentsHtml += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${issue}">댓글 남기기 →</a></p>\n`;
+  }
+
+  const metaLine = [
+    formatDate(date),
+    description || null,
+    tags ? tags.map(t => `#${t}`).join(" ") : null,
+  ].filter(Boolean).join(" · ");
+
+  const content = `<article>
+<h1>${esc(title)}</h1>
+<p><small>${metaLine}</small></p>
+<hr>
+${htmlBody}
+${commentsHtml}
+<hr>
+<nav><a href="/">← 글 목록</a></nav>
+</article>`;
+
+  return renderTemplate(template, {
+    title: `${esc(title)} — 하은 블로그`,
+    description: esc(description || title),
+    og_type: "article",
+    url: `${BASE_URL}/posts/${post.slug}.html`,
+    content,
+  });
+}
+
+function renderIndexPage(template, posts) {
+  let listHtml = "";
+  if (posts.length === 0) {
+    listHtml = "<p>아직 글이 없습니다.</p>";
+  } else {
+    listHtml += `<ul>\n`;
+    for (const p of posts) {
+      listHtml += `<li>\n`;
+      listHtml += `<p>${formatDate(p.date)} — <a href="/posts/${p.slug}.html"><strong>${esc(p.title)}</strong></a>`;
+      if (p.description)
+        listHtml += `<br><small>${esc(p.description)}</small>`;
+      if (p.tags)
+        listHtml += `<br>${p.tags.map((t) => `<kbd>#${esc(t)}</kbd>`).join(" ")}`;
+      listHtml += `</p>\n`;
+      listHtml += `</li>\n`;
+    }
+    listHtml += `</ul>\n`;
+  }
+
+  return renderTemplate(template, {
+    title: "하은 블로그",
+    description: "하은 블로그",
+    og_type: "website",
+    url: BASE_URL,
+    content: listHtml,
+  });
+}
+
+function renderGuestbookPage(template, comments) {
+  let html = `<h1>발자취 🐾</h1>\n`;
+  html += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${GUESTBOOK_ISSUE}">발자취 남기기 →</a></p>\n`;
+
+  if (comments.length === 0) {
+    html += `<p>아직 발자취가 없습니다.</p>\n`;
+  } else {
+    html += renderComments(comments);
+  }
+
+  html += `<p><a href="/">← 글 목록</a></p>\n`;
+
+  return renderTemplate(template, {
+    title: "발자취 — 하은 블로그",
+    description: "발자취를 남겨주세요",
+    og_type: "website",
+    url: `${BASE_URL}/guestbook.html`,
+    content: html,
+  });
+}
+
+// ── 빌드: 오케스트레이션 ─────────────────────────────
 
 async function build() {
   const template = fs.readFileSync(TEMPLATE_PATH, "utf-8");
@@ -295,104 +467,41 @@ async function build() {
     return;
   }
 
+  // 파일 읽기 → 데이터 파싱
   const files = fs
     .readdirSync(POSTS_DIR)
     .filter((f) => f.endsWith(".md"))
     .sort()
     .reverse();
-
-  const posts = [];
-
-  for (const file of files) {
+  const posts = files.map((file) => {
     const raw = fs.readFileSync(path.join(POSTS_DIR, file), "utf-8");
-    const { meta, body } = parseFrontmatter(raw);
+    return parsePost(file, raw);
+  });
 
-    const slug = file.replace(/\.md$/, "");
-    const title = meta.title || slug;
-    const date = meta.date || slug.slice(0, 10);
-    const description = meta.description || "";
-    const tags = meta.tags ? meta.tags.split(",").map(t => t.trim()).filter(Boolean) : null;
-    const issueNum = meta.issue || null;
-    const htmlBody = markdownToHtml(body);
+  // 댓글 병렬 fetch
+  const issueNumbers = [
+    ...posts.filter((p) => p.issue != null).map((p) => p.issue),
+    GUESTBOOK_ISSUE,
+  ];
+  const commentsMap = await fetchAllComments(issueNumbers);
 
-    let commentsHtml = "";
-    if (issueNum) {
-      const comments = await fetchComments(issueNum);
-      commentsHtml += `<hr>\n<h2>댓글</h2>\n`;
-      if (comments.length > 0) {
-        commentsHtml += renderComments(comments);
-      }
-      commentsHtml += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${issueNum}">댓글 남기기 →</a></p>\n`;
-    }
-
-    const tagsInline = tags ? ` · ${tags.map(t => `#${t}`).join(" ")}` : "";
-    const postContent = `<article>
-<h1>${esc(title)}</h1>
-<details open>
-<summary>${formatDate(date)}${tagsInline}</summary>
-${description ? `<p>${esc(description)}</p>` : ""}
-</details>
-${htmlBody}
-${commentsHtml}
-<nav><a href="/">← 글 목록</a></nav>
-</article>`;
-
-    const postHtml = template
-      .replace("{{title}}", `${esc(title)} — hazzzi`)
-      .replace("{{description}}", esc(description || title))
-      .replace("{{content}}", postContent);
-
-    fs.writeFileSync(path.join(DOCS_DIR, "posts", `${slug}.html`), postHtml);
-    posts.push({ title, date, description, slug, tags });
-    console.log(`  ✓ ${file}`);
+  // 포스트 페이지 렌더 → 디스크 쓰기
+  for (const post of posts) {
+    const comments = commentsMap.get(post.issue) ?? [];
+    const html = renderPostPage(template, post, comments);
+    fs.writeFileSync(path.join(DOCS_DIR, "posts", `${post.slug}.html`), html);
+    console.log(`  ✓ ${post.slug}.md`);
   }
 
-  // 인덱스
-  let listHtml = "";
-  if (posts.length === 0) {
-    listHtml = "<p>아직 글이 없습니다.</p>";
-  } else {
-    listHtml += `<ul>\n`;
-    for (const p of posts) {
-      listHtml += `<li>\n`;
-      listHtml += `<p>${formatDate(p.date)} — <a href="/posts/${p.slug}.html"><strong>${esc(p.title)}</strong></a>`;
-      if (p.description) listHtml += `<br><small>${esc(p.description)}</small>`;
-      if (p.tags) listHtml += `<br>${p.tags.map(t => `<kbd>#${esc(t)}</kbd>`).join(" ")}`;
-      listHtml += `</p>\n`;
-      listHtml += `</li>\n`;
-    }
-    listHtml += `</ul>\n`;
-  }
-
-  const indexContent = listHtml;
-
-  const indexHtml = template
-    .replace("{{title}}", "hazzzi")
-    .replace("{{description}}", "hazzzi의 개발 블로그")
-    .replace("{{content}}", indexContent);
-
+  // 인덱스 페이지
+  const indexHtml = renderIndexPage(template, posts);
   fs.writeFileSync(path.join(DOCS_DIR, "index.html"), indexHtml);
   console.log(`\n${posts.length}개 글 빌드 완료`);
 
-  // 방명록
-  const guestbookComments = await fetchComments(2);
-  let guestbookHtml = `<h1>발자취 🐾</h1>\n`;
-  guestbookHtml += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/2">발자취 남기기 →</a></p>\n`;
-
-  if (guestbookComments.length === 0) {
-    guestbookHtml += `<p>아직 발자취가 없습니다.</p>\n`;
-  } else {
-    guestbookHtml += renderComments(guestbookComments);
-  }
-
-  guestbookHtml += `<p><a href="/">← 글 목록</a></p>\n`;
-
-  const guestbookPage = template
-    .replace("{{title}}", "발자취 — hazzzi")
-    .replace("{{description}}", "발자취를 남겨주세요")
-    .replace("{{content}}", guestbookHtml);
-
-  fs.writeFileSync(path.join(DOCS_DIR, "guestbook.html"), guestbookPage);
+  // 방명록 페이지
+  const guestbookComments = commentsMap.get(GUESTBOOK_ISSUE) ?? [];
+  const guestbookHtml = renderGuestbookPage(template, guestbookComments);
+  fs.writeFileSync(path.join(DOCS_DIR, "guestbook.html"), guestbookHtml);
   console.log(`발자취 ${guestbookComments.length}개 렌더 완료`);
 }
 
