@@ -14,29 +14,31 @@
     <meta name="twitter:title" content="{{title}}">
     <meta name="twitter:description" content="{{description}}">
     <link rel="canonical" href="{{url}}">
+    <link rel="alternate" type="application/rss+xml" title="하은 블로그" href="/feed.xml">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>😎</text></svg>">
     <title>{{title}}</title>
 </head>
 <body>
+<a href="#main">본문으로 건너뛰기</a>
 <center>
 <header>
-<pre>
+<pre role="img" aria-label="HAZZZI">
 █ █  ▄▀█  ▀█  ▀█  ▀█  █
 █▀█  █▀█  █▄  █▄  █▄  █
 </pre>
-<marquee behavior="alternate" scrollamount="1">⚡ no css · no framework · no problem ⚡</marquee>
+<marquee behavior="alternate" scrollamount="1" aria-live="off">⚡ no css · no framework · no problem ⚡</marquee>
 </header>
 </center>
 <hr>
-<main>
-<table width="100%"><tr><td>
+<main id="main">
+<table width="100%" role="presentation"><tr><td>
 {{content}}
 </td></tr></table>
 </main>
 <hr>
 <center>
 <footer>
-<pre>
+<pre role="img" aria-label="고양이">
   ⠀⠀⣤⣲⣲⢤⠀⢀⡮⡯⡯⡦
   ⠀⢸⣳⡳⡯⣯⣀⡸⡽⡽⣽⣫
   ⠀⡸⠮⡯⡯⣗⣗⡯⣯⢯⣗⡯⡄
@@ -46,7 +48,7 @@
   ⠀⠀⠀⢴⣩⠉⠉⠉⠉⡭⠆
   ⠀⠀⠀⠀⠸⡰⠚⠒⢆⠇
 </pre>
-<p><a href="/guestbook.html">발자취 🐾</a></p>
+<p><a href="/about.html">about</a> · <a href="/guestbook.html">발자취 🐾</a></p>
 <p>© 2026 <a href="https://github.com/hazzzi">hazzzi</a> · inspired by <a href="https://nocss.club">No CSS Club</a></p>
 </footer>
 </center>
