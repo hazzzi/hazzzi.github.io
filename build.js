@@ -223,7 +223,7 @@ function markdownToHtml(md, parentRefs = new Map()) {
     // 헤더
     const hm = line.match(/^(#{1,6})\s+(.+)/);
     if (hm) {
-      const lvl = hm[1].length;
+      const lvl = Math.min(hm[1].length + 1, 6);
       out.push(`<h${lvl} id="${slugify(hm[2])}">${inline(hm[2], refs)}</h${lvl}>`);
       i++;
       continue;
@@ -330,11 +330,12 @@ async function fetchAllComments(issueNumbers) {
 function renderComments(comments) {
   let html = "";
   for (const c of comments) {
+    if (html) html += `<hr>\n`;
     const date = formatDate(c.created_at.slice(0, 10));
-    html += `<blockquote>\n`;
+    html += `<article>\n`;
+    html += `<p><strong><a href="${esc(c.user.html_url)}">${esc(c.user.login)}</a></strong> · <small>${date}</small></p>\n`;
     html += `<p>${esc(c.body)}</p>\n`;
-    html += `<p><small><a href="${esc(c.user.html_url)}">${esc(c.user.login)}</a> · ${date}</small></p>\n`;
-    html += `</blockquote>\n`;
+    html += `</article>\n`;
   }
   return html;
 }
@@ -422,7 +423,7 @@ function renderPostPage(template, post, comments, older, newer) {
 
   let commentsHtml = "";
   if (issue != null) {
-    commentsHtml += `<hr>\n<h2 id="comments-title">댓글 ${comments.length}개</h2>\n`;
+    commentsHtml += `<hr>\n<section>\n<h3 id="comments-title">댓글 ${comments.length}개</h3>\n`;
     commentsHtml += `<div id="comments">\n`;
     if (comments.length > 0) {
       commentsHtml += renderComments(comments);
@@ -447,17 +448,18 @@ function renderPostPage(template, post, comments, older, newer) {
       $t.textContent = "댓글 " + data.length + "개";
       if (!data.length) { $c.innerHTML = "<p>아직 댓글이 없어요.</p>"; return; }
       var h = "";
-      data.forEach(function(c){
+      data.forEach(function(c, i){
         var d = c.created_at.slice(0,10).replace(/-/g,".");
         var body = c.body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-        h += "<blockquote><p>" + body + "</p>"
-           + "<p><small><a href=\\"" + c.user.html_url + "\\">" + c.user.login + "</a> · " + d + "</small></p></blockquote>";
+        if (i > 0) h += "<hr>";
+        h += "<article><p><strong><a href=\\"" + c.user.html_url + "\\">" + c.user.login + "</a></strong> · <small>" + d + "</small></p>"
+           + "<p>" + body + "</p></article>";
       });
       $c.innerHTML = h;
     })
     .catch(function(){});
 })();
-<\/script>\n`;
+<\/script>\n</section>\n`;
   }
 
   const metaLine = [
@@ -475,15 +477,17 @@ function renderPostPage(template, post, comments, older, newer) {
   }
   navHtml += `</nav>`;
 
-  const content = `<h1>${esc(title)}</h1>
+  const content = `<article>
+<header>
+<h2>${esc(title)}</h2>
 <p><small>${metaLine}</small></p>
+</header>
 <hr>
-<article>
 ${htmlBody}
+</article>
 ${commentsHtml}
 <hr>
-${navHtml}
-</article>`;
+${navHtml}`;
 
   return renderTemplate(template, {
     title: `${esc(title)} — 하은 블로그`,
@@ -523,8 +527,9 @@ function renderIndexPage(template, posts) {
 }
 
 function renderGuestbookPage(template, comments) {
-  let html = `<h1>발자취 🐾</h1>\n`;
-  html += `<h2 id="comments-title">발자취 ${comments.length}개</h2>\n`;
+  let html = `<h2>발자취 🐾</h2>\n`;
+  html += `<section>\n`;
+  html += `<h3 id="comments-title">발자취 ${comments.length}개</h3>\n`;
   html += `<div id="comments">\n`;
   if (comments.length === 0) {
     html += `<p>아직 발자취가 없어요.</p>\n`;
@@ -549,17 +554,19 @@ function renderGuestbookPage(template, comments) {
       $t.textContent = "발자취 " + data.length + "개";
       if (!data.length) { $c.innerHTML = "<p>아직 발자취가 없어요.</p>"; return; }
       var h = "";
-      data.forEach(function(c){
+      data.forEach(function(c, i){
         var d = c.created_at.slice(0,10).replace(/-/g,".");
         var body = c.body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-        h += "<blockquote><p>" + body + "</p>"
-           + "<p><small><a href=\\"" + c.user.html_url + "\\">" + c.user.login + "</a> · " + d + "</small></p></blockquote>";
+        if (i > 0) h += "<hr>";
+        h += "<article><p><strong><a href=\\"" + c.user.html_url + "\\">" + c.user.login + "</a></strong> · <small>" + d + "</small></p>"
+           + "<p>" + body + "</p></article>";
       });
       $c.innerHTML = h;
     })
     .catch(function(){});
 })();
 <\/script>\n`;
+  html += `</section>\n`;
 
   html += `<p><a href="/">← 글 목록</a></p>\n`;
 
@@ -625,7 +632,7 @@ Sitemap: ${BASE_URL}/sitemap.xml
 // ── 소개 페이지 ──────────────────────────────────────
 
 function renderAboutPage(template) {
-  const content = `<h1>about</h1>
+  const content = `<h2>about</h2>
 <p>하은이라고 합니다.</p>
 <p>관심 있는 건 추상화, 함수형 프로그래밍, AI. 대충 그런 것들.</p>
 <p>이 블로그는 CSS가 없습니다.<br>
@@ -652,7 +659,7 @@ function render404Page(template) {
     description: "페이지를 찾을 수 없습니다",
     og_type: "website",
     url: BASE_URL,
-    content: `<h1>404</h1>\n<p>페이지를 찾을 수 없습니다.</p>\n<p><a href="/">← 글 목록으로</a></p>`,
+    content: `<h2>404</h2>\n<p>페이지를 찾을 수 없습니다.</p>\n<p><a href="/">← 글 목록으로</a></p>`,
   });
 }
 
