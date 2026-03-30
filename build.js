@@ -475,10 +475,10 @@ function renderPostPage(template, post, comments, older, newer) {
   }
   navHtml += `</nav>`;
 
-  const content = `<article>
-<h1>${esc(title)}</h1>
+  const content = `<h1>${esc(title)}</h1>
 <p><small>${metaLine}</small></p>
 <hr>
+<article>
 ${htmlBody}
 ${commentsHtml}
 <hr>
