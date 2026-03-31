@@ -633,12 +633,11 @@ Sitemap: ${BASE_URL}/sitemap.xml
 
 function renderAboutPage(template) {
   const content = `<h2>about</h2>
-<p>하은이라고 합니다.</p>
-<p>관심 있는 건 추상화, 함수형 프로그래밍, AI. 대충 그런 것들.</p>
+<p>추상화, 함수형 프로그래밍, AI에 관심이 있습니다.</p>
 <p>이 블로그는 CSS가 없습니다.<br>
 프레임워크도 없고, 빌드 도구도 없고, 그냥 HTML입니다.<br>
-이유는 별거 없고, 재밌을 것 같아서.</p>
-<p>기술 얘기도 하고, 그때그때 생각나는 거 적어두는 블로그예요.</p>
+재밌을 것 같아서 시작했습니다.</p>
+<p>기술 얘기도 하고, 그때그때 생각나는 것들을 적어두는 블로그입니다.</p>
 <p><a href="https://github.com/hazzzi">GitHub</a></p>
 <p><a href="/">← 글 목록</a></p>`;
 
