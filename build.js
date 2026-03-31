@@ -58,7 +58,7 @@ function inline(text, refs = new Map()) {
   // 이미지
   text = text.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
-    '<img src="$2" alt="$1">'
+    '<img src="$2" alt="$1" width="100%">'
   );
   // 링크
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
@@ -74,7 +74,7 @@ function inline(text, refs = new Map()) {
   text = text.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
   text = text.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, "<em>$1</em>");
   // 취소선
-  text = text.replace(/~~(.+?)~~/g, "<del>$1</del>");
+  text = text.replace(/~~(.+?)~~/g, "<s>$1</s>");
 
   // 인라인 코드 복원
   text = text.replace(/\x00CODE(\d+)\x00/g, (_, i) => codes[i]);
@@ -179,13 +179,18 @@ function markdownToHtml(md, parentRefs = new Map()) {
         i++;
       }
       i++;
-      out.push(
-        lang
-          ? `<fieldset><legend>${esc(lang)}</legend>` +
-            `<pre><code>${esc(buf.join("\n"))}</code></pre>` +
-            `</fieldset>`
-          : `<pre><code>${esc(buf.join("\n"))}</code></pre>`
-      );
+      const SHELL_LANGS = new Set(["bash", "sh", "shell", "zsh"]);
+      const content = esc(buf.join("\n"));
+      if (lang) {
+        const tag = SHELL_LANGS.has(lang.toLowerCase()) ? "kbd" : "code";
+        out.push(
+          `<figure><figcaption>${esc(lang)}</figcaption>` +
+          `<pre><${tag}>${content}</${tag}></pre>` +
+          `</figure>`
+        );
+      } else {
+        out.push(`<pre><samp>${content}</samp></pre>`);
+      }
       continue;
     }
 
@@ -223,7 +228,7 @@ function markdownToHtml(md, parentRefs = new Map()) {
     // 헤더
     const hm = line.match(/^(#{1,6})\s+(.+)/);
     if (hm) {
-      const lvl = Math.min(hm[1].length + 1, 6);
+      const lvl = hm[1].length;
       out.push(`<h${lvl} id="${slugify(hm[2])}">${inline(hm[2], refs)}</h${lvl}>`);
       i++;
       continue;
@@ -243,12 +248,7 @@ function markdownToHtml(md, parentRefs = new Map()) {
         buf.push(lines[i].replace(/^>\s?/, ""));
         i++;
       }
-      out.push(
-        `<table border="0" cellpadding="0" cellspacing="4"><tr>` +
-          `<td width="2" bgcolor="gray"></td>` +
-          `<td>${markdownToHtml(buf.join("\n"), refs)}</td>` +
-          `</tr></table>`
-      );
+      out.push(`<blockquote>${markdownToHtml(buf.join("\n"), refs)}</blockquote>`);
       continue;
     }
 
@@ -284,7 +284,7 @@ function markdownToHtml(md, parentRefs = new Map()) {
         const m = text.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
         out.push(
           `<figure>` +
-            `<img src="${m[2]}" alt="${esc(m[1])}">` +
+            `<img src="${m[2]}" alt="${esc(m[1])}" width="100%">` +
             (m[1] ? `<figcaption>${esc(m[1])}</figcaption>` : "") +
             `</figure>`
         );
@@ -431,10 +431,10 @@ function renderPostPage(template, post, comments, older, newer) {
       commentsHtml += `<p>아직 댓글이 없어요.</p>\n`;
     }
     commentsHtml += `</div>\n`;
-    commentsHtml += `<table border="1" cellpadding="8" cellspacing="0">\n<tr><td>\n`;
-    commentsHtml += `  <b><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${issue}">GitHub에서 댓글 남기기</a></b>\n`;
-    commentsHtml += `  <br><small>GitHub 계정으로 로그인 후 이슈에 코멘트를 남기면 여기에 표시돼요.</small>\n`;
-    commentsHtml += `</td></tr>\n</table>\n`;
+    commentsHtml += `<fieldset>\n<legend>댓글</legend>\n`;
+    commentsHtml += `<p><b><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${issue}">GitHub에서 댓글 남기기</a></b></p>\n`;
+    commentsHtml += `<p><small>GitHub 계정으로 로그인 후 이슈에 코멘트를 남기면 여기에 표시돼요.</small></p>\n`;
+    commentsHtml += `</fieldset>\n`;
 
     commentsHtml += `<script>
 (function(){
@@ -479,7 +479,7 @@ function renderPostPage(template, post, comments, older, newer) {
 
   const content = `<article>
 <header>
-<h2>${esc(title)}</h2>
+<h1>${esc(title)}</h1>
 <p><small>${metaLine}</small></p>
 </header>
 <hr>
@@ -537,10 +537,10 @@ function renderGuestbookPage(template, comments) {
     html += renderComments(comments);
   }
   html += `</div>\n`;
-  html += `<table border="1" cellpadding="8" cellspacing="0">\n<tr><td>\n`;
-  html += `  <b><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${GUESTBOOK_ISSUE}">GitHub에서 발자취 남기기</a></b>\n`;
-  html += `  <br><small>GitHub 계정으로 로그인 후 이슈에 코멘트를 남기면 여기에 표시돼요.</small>\n`;
-  html += `</td></tr>\n</table>\n`;
+  html += `<fieldset>\n<legend>발자취</legend>\n`;
+  html += `<p><b><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${GUESTBOOK_ISSUE}">GitHub에서 발자취 남기기</a></b></p>\n`;
+  html += `<p><small>GitHub 계정으로 로그인 후 이슈에 코멘트를 남기면 여기에 표시돼요.</small></p>\n`;
+  html += `</fieldset>\n`;
 
   html += `<script>
 (function(){
