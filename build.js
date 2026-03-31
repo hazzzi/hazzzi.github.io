@@ -499,7 +499,7 @@ ${navHtml}`;
 }
 
 function renderIndexPage(template, posts) {
-  let listHtml = "";
+  let listHtml = "<p>개발하고 생각하고 기록하는 블로그</p>\n";
   if (posts.length === 0) {
     listHtml = "<p>아직 글이 없습니다.</p>";
   } else {
