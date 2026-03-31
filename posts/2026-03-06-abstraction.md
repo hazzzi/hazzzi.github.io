@@ -3,6 +3,7 @@ title: 추상화에 대하여
 date: 2026-03-06
 description: 같은 것을 알아보는 눈
 draft: false
+issue: 6
 ---
 
 ## AI와 일하면서 느낀 것
