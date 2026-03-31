@@ -301,7 +301,7 @@ function markdownToHtml(md, parentRefs = new Map()) {
 
 function formatDate(dateStr) {
   const [y, m, d] = dateStr.split("-");
-  return `${y}.${m}.${d}`;
+  return `<time datetime="${dateStr}">${y}.${m}.${d}</time>`;
 }
 
 // ── GitHub Issue 댓글 ────────────────────────────────
