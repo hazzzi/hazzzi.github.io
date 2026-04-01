@@ -1,0 +1,27 @@
+{
+  "name": "hazzzi.github.io",
+  "version": "1.0.0",
+  "description": "",
+  "main": "build.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hazzzi/hazzzi.github.io.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hazzzi/hazzzi.github.io/issues"
+  },
+  "homepage": "https://github.com/hazzzi/hazzzi.github.io#readme",
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

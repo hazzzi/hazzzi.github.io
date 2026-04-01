@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { generateOgImages } = require("./og-generate");
 
 const POSTS_DIR = path.join(__dirname, "posts");
 const DOCS_DIR = path.join(__dirname, "docs");
@@ -517,6 +518,7 @@ ${navHtml}`;
     og_type: "article",
     og_extra: `<meta property="article:published_time" content="${date}">`,
     url: `${BASE_URL}/posts/${post.slug}.html`,
+    og_image: `${BASE_URL}/og/${post.slug}.png`,
     content,
   });
 }
@@ -546,6 +548,7 @@ function renderIndexPage(template, posts) {
     og_type: "website",
     og_extra: "",
     url: BASE_URL,
+    og_image: `${BASE_URL}/og/default.png`,
     content: listHtml,
   });
 }
@@ -600,6 +603,7 @@ function renderGuestbookPage(template, comments) {
     og_type: "website",
     og_extra: "",
     url: `${BASE_URL}/guestbook.html`,
+    og_image: `${BASE_URL}/og/default.png`,
     content: html,
   });
 }
@@ -672,6 +676,7 @@ function renderAboutPage(template) {
     og_type: "website",
     og_extra: "",
     url: `${BASE_URL}/about.html`,
+    og_image: `${BASE_URL}/og/default.png`,
     content,
   });
 }
@@ -685,6 +690,7 @@ function render404Page(template) {
     og_type: "website",
     og_extra: "",
     url: BASE_URL,
+    og_image: `${BASE_URL}/og/default.png`,
     content: `<h2>404</h2>\n<p>페이지를 찾을 수 없습니다.</p>\n<p><a href="/">← 글 목록으로</a></p>`,
   });
 }
@@ -731,6 +737,9 @@ async function build() {
     GUESTBOOK_ISSUE,
   ];
   const commentsMap = await fetchAllComments(issueNumbers);
+
+  // OG 이미지 생성
+  await generateOgImages(posts);
 
   // 포스트 페이지 렌더 → 디스크 쓰기
   // posts는 최신순. older = 이전(오래된) 글, newer = 다음(최근) 글
