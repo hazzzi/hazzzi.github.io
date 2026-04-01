@@ -3,6 +3,7 @@ title: Union Type으로 예측 가능한 컴포넌트 Props 설계하기
 date: 2026-03-31
 description: 경우의 수를 줄이는 타입 설계
 draft: false
+issue: 7
 ---
 
 > 사내 프론트엔드 기술 공유에서 발표했던 내용을 블로그용으로 다듬었습니다.
