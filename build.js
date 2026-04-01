@@ -23,6 +23,20 @@ function parseFrontmatter(content) {
   return { meta, body: match[2] };
 }
 
+// ── LaTeX → Unicode ───────────────────────────────────
+
+function latexToUnicode(tex) {
+  return tex
+    .replace(/\\times/g, "×")
+    .replace(/\\div/g, "÷")
+    .replace(/\\pm/g, "±")
+    .replace(/\\leq/g, "≤")
+    .replace(/\\geq/g, "≥")
+    .replace(/\\neq/g, "≠")
+    .replace(/\\infty/g, "∞")
+    .replace(/\\cdot/g, "·");
+}
+
 // ── Markdown → HTML ───────────────────────────────────
 
 function esc(str) {
@@ -237,6 +251,14 @@ function markdownToHtml(md, parentRefs = new Map()) {
     // 수평선
     if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line.trim())) {
       out.push("<hr>");
+      i++;
+      continue;
+    }
+
+    // 블록 수식 ($$...$$)
+    if (line.trim().startsWith("$$") && line.trim().endsWith("$$") && line.trim().length > 4) {
+      const math = line.trim().slice(2, -2).trim();
+      out.push(`<p><strong>${latexToUnicode(esc(math))}</strong></p>`);
       i++;
       continue;
     }
@@ -490,9 +512,10 @@ ${commentsHtml}
 ${navHtml}`;
 
   return renderTemplate(template, {
-    title: `${esc(title)} — 하은 블로그`,
+    title: `${esc(title)} — hazzzi`,
     description: esc(description || title),
     og_type: "article",
+    og_extra: `<meta property="article:published_time" content="${date}">`,
     url: `${BASE_URL}/posts/${post.slug}.html`,
     content,
   });
@@ -518,9 +541,10 @@ function renderIndexPage(template, posts) {
   }
 
   return renderTemplate(template, {
-    title: "하은 블로그",
-    description: "하은 블로그",
+    title: "hazzzi",
+    description: "hazzzi",
     og_type: "website",
+    og_extra: "",
     url: BASE_URL,
     content: listHtml,
   });
@@ -571,9 +595,10 @@ function renderGuestbookPage(template, comments) {
   html += `<p><a href="/">← 글 목록</a></p>\n`;
 
   return renderTemplate(template, {
-    title: "발자취 — 하은 블로그",
+    title: "발자취 — hazzzi",
     description: "발자취를 남겨주세요",
     og_type: "website",
+    og_extra: "",
     url: `${BASE_URL}/guestbook.html`,
     content: html,
   });
@@ -593,9 +618,9 @@ function renderFeed(posts) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
-  <title>하은 블로그</title>
+  <title>hazzzi</title>
   <link>${BASE_URL}</link>
-  <description>하은 블로그</description>
+  <description>hazzzi</description>
   <language>ko</language>
   <atom:link href="${BASE_URL}/feed.xml" rel="self" type="application/rss+xml"/>
 ${items}
@@ -642,9 +667,10 @@ function renderAboutPage(template) {
 <p><a href="/">← 글 목록</a></p>`;
 
   return renderTemplate(template, {
-    title: "about — 하은 블로그",
-    description: "하은 블로그 소개",
+    title: "about — hazzzi",
+    description: "hazzzi 소개",
     og_type: "website",
+    og_extra: "",
     url: `${BASE_URL}/about.html`,
     content,
   });
@@ -654,9 +680,10 @@ function renderAboutPage(template) {
 
 function render404Page(template) {
   return renderTemplate(template, {
-    title: "404 — 하은 블로그",
+    title: "404 — hazzzi",
     description: "페이지를 찾을 수 없습니다",
     og_type: "website",
+    og_extra: "",
     url: BASE_URL,
     content: `<h2>404</h2>\n<p>페이지를 찾을 수 없습니다.</p>\n<p><a href="/">← 글 목록으로</a></p>`,
   });
