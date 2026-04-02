@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
+const sharp = require("sharp");
 const { generateOgImages } = require("./og-generate");
+
+const IMAGE_MAX_WIDTH = 600;
 
 const POSTS_DIR = path.join(__dirname, "posts");
 const DOCS_DIR = path.join(__dirname, "docs");
@@ -788,16 +791,25 @@ async function build() {
     return;
   }
 
-  // 이미지 등 비-md 파일 복사
+  // 이미지 등 비-md 파일 복사 (이미지는 리사이즈)
   const assets = fs.readdirSync(POSTS_DIR).filter((f) => !f.endsWith(".md"));
+  let resizedCount = 0;
   for (const file of assets) {
-    fs.copyFileSync(
-      path.join(POSTS_DIR, file),
-      path.join(DOCS_DIR, "posts", file)
-    );
+    const src = path.join(POSTS_DIR, file);
+    const dest = path.join(DOCS_DIR, "posts", file);
+    const ext = path.extname(file).toLowerCase();
+    if ([".png", ".jpg", ".jpeg", ".webp"].includes(ext)) {
+      const meta = await sharp(src).metadata();
+      if (meta.width > IMAGE_MAX_WIDTH) {
+        await sharp(src).resize(IMAGE_MAX_WIDTH).toFile(dest);
+        resizedCount++;
+        continue;
+      }
+    }
+    fs.copyFileSync(src, dest);
   }
   if (assets.length > 0) {
-    console.log(`${assets.length}개 에셋 복사 완료`);
+    console.log(`${assets.length}개 에셋 처리 (${resizedCount}개 리사이즈)`);
   }
 
   // 파일 읽기 → 데이터 파싱
