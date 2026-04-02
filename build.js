@@ -3,7 +3,7 @@ const path = require("path");
 const sharp = require("sharp");
 const { generateOgImages } = require("./og-generate");
 
-const IMAGE_WIDTHS = { sm: 360, md: 600, lg: 800 };
+const IMAGE_WIDTHS = { sm: 280, md: 600, lg: 800 };
 
 const POSTS_DIR = path.join(__dirname, "posts");
 const DOCS_DIR = path.join(__dirname, "docs");
@@ -81,7 +81,7 @@ function inline(text, refs = new Map()) {
       const base = src.slice(0, -ext.length);
       const sm = `${base}-sm${ext}`;
       const md = `${base}-md${ext}`;
-      return `<figure><img src="${src}" srcset="${sm} 360w, ${md} 600w, ${src} 800w" sizes="(max-width: 400px) 360px, (max-width: 800px) 600px, 800px" alt="${alt}"><figcaption>${alt}</figcaption></figure>`;
+      return `<figure><img src="${src}" srcset="${sm} 280w, ${md} 600w, ${src} 800w" sizes="(max-width: 400px) 280px, (max-width: 800px) 600px, 800px" alt="${alt}"><figcaption>${alt}</figcaption></figure>`;
     }
   );
   // 링크
@@ -321,7 +321,7 @@ function markdownToHtml(md, parentRefs = new Map()) {
         const imgSm = `${imgBase}-sm${imgExt}`;
         out.push(
           `<figure>` +
-            `<img src="${imgSrc}" srcset="${imgSm} 360w, ${imgBase}-md${imgExt} 600w, ${imgSrc} 800w" sizes="(max-width: 400px) 360px, (max-width: 800px) 600px, 800px" alt="${imgAlt}">` +
+            `<img src="${imgSrc}" srcset="${imgSm} 280w, ${imgBase}-md${imgExt} 600w, ${imgSrc} 800w" sizes="(max-width: 400px) 280px, (max-width: 800px) 600px, 800px" alt="${imgAlt}">` +
             (m[1] ? `<figcaption>${imgAlt}</figcaption>` : "") +
             `</figure>`
         );
