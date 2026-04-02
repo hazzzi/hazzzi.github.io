@@ -705,6 +705,18 @@ async function build() {
     return;
   }
 
+  // 이미지 등 비-md 파일 복사
+  const assets = fs.readdirSync(POSTS_DIR).filter((f) => !f.endsWith(".md"));
+  for (const file of assets) {
+    fs.copyFileSync(
+      path.join(POSTS_DIR, file),
+      path.join(DOCS_DIR, "posts", file)
+    );
+  }
+  if (assets.length > 0) {
+    console.log(`${assets.length}개 에셋 복사 완료`);
+  }
+
   // 파일 읽기 → 데이터 파싱
   const files = fs
     .readdirSync(POSTS_DIR)
