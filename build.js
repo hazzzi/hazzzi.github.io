@@ -425,11 +425,16 @@ function renderTemplate(tmpl, slots) {
 function parsePost(file, raw) {
   const { meta, body } = parseFrontmatter(raw);
   const slug = file.replace(/\.md$/, "");
+  const isEn = slug.endsWith(".en");
+  const baseSlug = isEn ? slug.slice(0, -3) : slug;
   return {
     slug,
+    baseSlug,
+    lang: isEn ? "en" : "ko",
     title: meta.title || slug,
     date: meta.date || slug.slice(0, 10),
     description: meta.description || "",
+    tldr: meta.tldr || "",
     tags: meta.tags
       ? meta.tags.split(",").map((t) => t.trim()).filter(Boolean)
       : null,
@@ -441,8 +446,32 @@ function parsePost(file, raw) {
 
 // ── 페이지 렌더 (순수: 데이터 → HTML) ───────────────
 
-function renderPostPage(template, post, comments, older, newer) {
-  const { title, date, description, tags, issue, htmlBody } = post;
+function renderJsonLd(post) {
+  const data = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.description || post.title,
+    datePublished: post.date,
+    url: `${BASE_URL}/posts/${post.slug}.html`,
+    inLanguage: post.lang,
+    author: {
+      "@type": "Person",
+      name: "hazzzi",
+      url: "https://github.com/hazzzi",
+      knowsAbout: ["Frontend Engineer", "Abstraction", "AI Collaboration", "Functional Programming"],
+    },
+    publisher: {
+      "@type": "Person",
+      name: "hazzzi",
+      url: BASE_URL,
+    },
+  };
+  return `<script type="application/ld+json">${JSON.stringify(data)}</script>`;
+}
+
+function renderPostPage(template, post, comments, older, newer, pairPost) {
+  const { title, date, description, tags, issue, tldr, lang, htmlBody } = post;
 
   let commentsHtml = "";
   if (issue != null) {
@@ -497,23 +526,35 @@ function renderPostPage(template, post, comments, older, newer) {
   }
   navHtml += `</nav>`;
 
+  let langLinkHtml = "";
+  if (pairPost) {
+    const label = lang === "ko" ? "🇺🇸 English" : "🇰🇷 한국어";
+    langLinkHtml = `<p><a href="/posts/${pairPost.slug}.html">${label}</a></p>\n`;
+  }
+
+  const tldrHtml = tldr
+    ? `<blockquote><strong>TL;DR</strong> ${esc(tldr)}</blockquote>\n`
+    : "";
+
   const content = `<article>
 <header>
 <h1>${esc(title)}</h1>
 <p><small>${metaLine}</small></p>
-</header>
+${langLinkHtml}</header>
 <hr>
-${htmlBody}
+${tldrHtml}${htmlBody}
 </article>
 ${commentsHtml}
 <hr>
 ${navHtml}`;
 
   return renderTemplate(template, {
+    lang,
     title: `${esc(title)} — hazzzi`,
     description: esc(description || title),
     og_type: "article",
     og_extra: `<meta property="article:published_time" content="${date}">`,
+    jsonld: renderJsonLd(post),
     url: `${BASE_URL}/posts/${post.slug}.html`,
     og_image: `${BASE_URL}/og/${post.slug}.png`,
     content,
@@ -540,6 +581,8 @@ function renderIndexPage(template, posts) {
   }
 
   return renderTemplate(template, {
+    lang: "ko",
+    jsonld: "",
     title: "hazzzi",
     description: "hazzzi",
     og_type: "website",
@@ -592,6 +635,8 @@ function renderGuestbookPage(template, comments) {
   html += `<p><a href="/">← 글 목록</a></p>\n`;
 
   return renderTemplate(template, {
+    lang: "ko",
+    jsonld: "",
     title: "발자취 — hazzzi",
     description: "발자취를 남겨주세요",
     og_type: "website",
@@ -648,8 +693,42 @@ function renderRobotsTxt() {
   return `User-agent: *
 Allow: /
 
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
 Sitemap: ${BASE_URL}/sitemap.xml
 `;
+}
+
+function renderLlmsTxt(posts) {
+  const lines = [
+    "# hazzzi",
+    "",
+    "> 개발하고 생각하고 기록하는 블로그. CSS 없이 HTML만으로 만들었습니다.",
+    "",
+    "## Posts",
+    "",
+  ];
+  for (const p of posts) {
+    lines.push(`- [${p.title}](${BASE_URL}/posts/${p.slug}.html): ${p.description || p.title}`);
+  }
+  lines.push("", "## Links", "");
+  lines.push(`- [About](${BASE_URL}/about.html)`);
+  lines.push(`- [RSS Feed](${BASE_URL}/feed.xml)`);
+  lines.push(`- [GitHub](https://github.com/hazzzi)`);
+  return lines.join("\n");
 }
 
 // ── 소개 페이지 ──────────────────────────────────────
@@ -665,6 +744,8 @@ function renderAboutPage(template) {
 <p><a href="/">← 글 목록</a></p>`;
 
   return renderTemplate(template, {
+    lang: "ko",
+    jsonld: "",
     title: "about — hazzzi",
     description: "hazzzi 소개",
     og_type: "website",
@@ -679,6 +760,8 @@ function renderAboutPage(template) {
 
 function render404Page(template) {
   return renderTemplate(template, {
+    lang: "ko",
+    jsonld: "",
     title: "404 — hazzzi",
     description: "페이지를 찾을 수 없습니다",
     og_type: "website",
@@ -729,9 +812,24 @@ async function build() {
   });
 
   const drafts = allPosts.filter((p) => p.draft);
-  const posts = allPosts.filter((p) => !p.draft);
+  const published = allPosts.filter((p) => !p.draft);
+  const posts = published.filter((p) => p.lang === "ko");
+  const enPosts = published.filter((p) => p.lang === "en");
   if (drafts.length > 0) {
     console.log(`${drafts.length}개 드래프트 건너뜀: ${drafts.map((d) => d.slug).join(", ")}`);
+  }
+  if (enPosts.length > 0) {
+    console.log(`${enPosts.length}개 영문 글 감지`);
+  }
+
+  // 한/영 쌍 매핑
+  const pairMap = new Map();
+  for (const ep of enPosts) {
+    const koPost = posts.find((p) => p.baseSlug === ep.baseSlug);
+    if (koPost) {
+      pairMap.set(koPost.slug, ep);
+      pairMap.set(ep.slug, koPost);
+    }
   }
 
   // 이슈 없는 포스트에 자동 생성 (GITHUB_TOKEN 있을 때만)
@@ -748,15 +846,25 @@ async function build() {
   await generateOgImages(posts);
 
   // 포스트 페이지 렌더 → 디스크 쓰기
-  // posts는 최신순. older = 이전(오래된) 글, newer = 다음(최근) 글
+  // posts는 최신순(한국어만). older = 이전(오래된) 글, newer = 다음(최근) 글
   for (let i = 0; i < posts.length; i++) {
     const post = posts[i];
     const comments = commentsMap.get(post.issue) ?? [];
     const older = posts[i + 1] || null;
     const newer = posts[i - 1] || null;
-    const html = renderPostPage(template, post, comments, older, newer);
+    const pair = pairMap.get(post.slug) || null;
+    const html = renderPostPage(template, post, comments, older, newer, pair);
     fs.writeFileSync(path.join(DOCS_DIR, "posts", `${post.slug}.html`), html);
     console.log(`  ✓ ${post.slug}.md`);
+  }
+
+  // 영문 글 렌더
+  for (const ep of enPosts) {
+    const comments = commentsMap.get(ep.issue) ?? [];
+    const pair = pairMap.get(ep.slug) || null;
+    const html = renderPostPage(template, ep, comments, null, null, pair);
+    fs.writeFileSync(path.join(DOCS_DIR, "posts", `${ep.slug}.html`), html);
+    console.log(`  ✓ ${ep.slug}.md (en)`);
   }
 
   // 인덱스 페이지
@@ -785,10 +893,11 @@ async function build() {
   fs.writeFileSync(path.join(DOCS_DIR, "about.html"), aboutHtml);
   console.log("about.html 생성 완료");
 
-  // Sitemap + robots.txt
-  fs.writeFileSync(path.join(DOCS_DIR, "sitemap.xml"), renderSitemap(posts));
+  // Sitemap + robots.txt + llms.txt
+  fs.writeFileSync(path.join(DOCS_DIR, "sitemap.xml"), renderSitemap([...posts, ...enPosts]));
   fs.writeFileSync(path.join(DOCS_DIR, "robots.txt"), renderRobotsTxt());
-  console.log("sitemap.xml, robots.txt 생성 완료");
+  fs.writeFileSync(path.join(DOCS_DIR, "llms.txt"), renderLlmsTxt([...posts, ...enPosts]));
+  console.log("sitemap.xml, robots.txt, llms.txt 생성 완료");
 }
 
 build();
