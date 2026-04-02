@@ -663,7 +663,7 @@ function renderFeed(posts) {
 <channel>
   <title>hazzzi</title>
   <link>${BASE_URL}</link>
-  <description>hazzzi</description>
+  <description>개발하고 생각하고 기록하는 블로그</description>
   <language>ko</language>
   <atom:link href="${BASE_URL}/feed.xml" rel="self" type="application/rss+xml"/>
 ${items}
