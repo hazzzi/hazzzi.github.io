@@ -3,6 +3,7 @@ title: 맹구런 개발기
 date: 2026-04-02
 description: AI랑 일하는 법
 draft: false
+issue: 9
 ---
 
 ## 스펙만 쓰면 된다고
