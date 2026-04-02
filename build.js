@@ -454,10 +454,7 @@ function renderPostPage(template, post, comments, older, newer) {
       commentsHtml += `<p>아직 댓글이 없어요.</p>\n`;
     }
     commentsHtml += `</div>\n`;
-    commentsHtml += `<fieldset>\n<legend>댓글</legend>\n`;
-    commentsHtml += `<p><b><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${issue}">GitHub에서 댓글 남기기</a></b></p>\n`;
-    commentsHtml += `<p><small>GitHub 계정으로 로그인 후 이슈에 코멘트를 남기면 여기에 표시돼요.</small></p>\n`;
-    commentsHtml += `</fieldset>\n`;
+    commentsHtml += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${issue}">GitHub에서 댓글 남기기</a> · <small>GitHub 계정으로 로그인 후 이슈에 코멘트를 남기면 여기에 표시돼요.</small></p>\n`;
 
     commentsHtml += `<script>
 (function(){
@@ -564,10 +561,7 @@ function renderGuestbookPage(template, comments) {
     html += renderComments(comments);
   }
   html += `</div>\n`;
-  html += `<fieldset>\n<legend>발자취</legend>\n`;
-  html += `<p><b><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${GUESTBOOK_ISSUE}">GitHub에서 발자취 남기기</a></b></p>\n`;
-  html += `<p><small>GitHub 계정으로 로그인 후 이슈에 코멘트를 남기면 여기에 표시돼요.</small></p>\n`;
-  html += `</fieldset>\n`;
+  html += `<p><a href="https://github.com/hazzzi/hazzzi.github.io/issues/${GUESTBOOK_ISSUE}">GitHub에서 발자취 남기기</a> · <small>GitHub 계정으로 로그인 후 이슈에 코멘트를 남기면 여기에 표시돼요.</small></p>\n`;
 
   html += `<script>
 (function(){
