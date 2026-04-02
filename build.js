@@ -3,7 +3,7 @@ const path = require("path");
 const sharp = require("sharp");
 const { generateOgImages } = require("./og-generate");
 
-const IMAGE_MAX_WIDTH = 600;
+const IMAGE_WIDTHS = { sm: 480, lg: 800 };
 
 const POSTS_DIR = path.join(__dirname, "posts");
 const DOCS_DIR = path.join(__dirname, "docs");
@@ -73,10 +73,15 @@ function inline(text, refs = new Map()) {
   // 줄바꿈 (trailing 2-space)
   text = text.replace(/ {2,}\n/g, "<br>\n");
 
-  // 이미지
+  // 이미지 (srcset 반응형)
   text = text.replace(
     /!\[([^\]]*)\]\(([^)]+)\)/g,
-    '<img src="$2" alt="$1" width="100%">'
+    (_, alt, src) => {
+      const ext = path.extname(src);
+      const base = src.slice(0, -ext.length);
+      const sm = `${base}-sm${ext}`;
+      return `<figure><img src="${src}" srcset="${sm} 480w, ${src} 800w" sizes="(max-width: 600px) 480px, 800px" alt="${alt}"><figcaption>${alt}</figcaption></figure>`;
+    }
   );
   // 링크
   text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
@@ -305,13 +310,18 @@ function markdownToHtml(md, parentRefs = new Map()) {
 
     if (buf.length > 0) {
       const text = buf.join("\n");
-      // 이미지만 있는 문단은 <figure>로 감싸기
+      // 이미지만 있는 문단은 <figure> + srcset으로 감싸기
       if (/^!\[([^\]]*)\]\(([^)]+)\)$/.test(text.trim())) {
         const m = text.trim().match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+        const imgSrc = m[2];
+        const imgAlt = esc(m[1]);
+        const imgExt = path.extname(imgSrc);
+        const imgBase = imgSrc.slice(0, -imgExt.length);
+        const imgSm = `${imgBase}-sm${imgExt}`;
         out.push(
           `<figure>` +
-            `<img src="${m[2]}" alt="${esc(m[1])}" width="100%">` +
-            (m[1] ? `<figcaption>${esc(m[1])}</figcaption>` : "") +
+            `<img src="${imgSrc}" srcset="${imgSm} 480w, ${imgSrc} 800w" sizes="(max-width: 600px) 480px, 800px" alt="${imgAlt}">` +
+            (m[1] ? `<figcaption>${imgAlt}</figcaption>` : "") +
             `</figure>`
         );
       } else {
@@ -791,25 +801,37 @@ async function build() {
     return;
   }
 
-  // 이미지 등 비-md 파일 복사 (이미지는 리사이즈)
+  // 이미지 등 비-md 파일 복사 (이미지는 srcset용 두 사이즈 생성)
   const assets = fs.readdirSync(POSTS_DIR).filter((f) => !f.endsWith(".md"));
-  let resizedCount = 0;
+  const imgExts = [".png", ".jpg", ".jpeg", ".webp"];
+  let imgCount = 0;
   for (const file of assets) {
     const src = path.join(POSTS_DIR, file);
     const dest = path.join(DOCS_DIR, "posts", file);
     const ext = path.extname(file).toLowerCase();
-    if ([".png", ".jpg", ".jpeg", ".webp"].includes(ext)) {
+    if (imgExts.includes(ext)) {
       const meta = await sharp(src).metadata();
-      if (meta.width > IMAGE_MAX_WIDTH) {
-        await sharp(src).resize(IMAGE_MAX_WIDTH).toFile(dest);
-        resizedCount++;
-        continue;
+      const base = file.slice(0, -ext.length);
+      // lg (기본)
+      if (meta.width > IMAGE_WIDTHS.lg) {
+        await sharp(src).resize(IMAGE_WIDTHS.lg).toFile(dest);
+      } else {
+        fs.copyFileSync(src, dest);
       }
+      // sm (모바일)
+      const smDest = path.join(DOCS_DIR, "posts", `${base}-sm${ext}`);
+      if (meta.width > IMAGE_WIDTHS.sm) {
+        await sharp(src).resize(IMAGE_WIDTHS.sm).toFile(smDest);
+      } else {
+        fs.copyFileSync(src, smDest);
+      }
+      imgCount++;
+    } else {
+      fs.copyFileSync(src, dest);
     }
-    fs.copyFileSync(src, dest);
   }
   if (assets.length > 0) {
-    console.log(`${assets.length}개 에셋 처리 (${resizedCount}개 리사이즈)`);
+    console.log(`${assets.length}개 에셋 처리 (${imgCount}개 이미지 srcset 생성)`);
   }
 
   // 파일 읽기 → 데이터 파싱
