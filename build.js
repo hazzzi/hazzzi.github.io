@@ -3,7 +3,7 @@ const path = require("path");
 const sharp = require("sharp");
 const { generateOgImages } = require("./og-generate");
 
-const IMAGE_WIDTHS = { sm: 480, lg: 800 };
+const IMAGE_WIDTHS = { sm: 360, md: 600, lg: 800 };
 
 const POSTS_DIR = path.join(__dirname, "posts");
 const DOCS_DIR = path.join(__dirname, "docs");
@@ -80,7 +80,8 @@ function inline(text, refs = new Map()) {
       const ext = path.extname(src);
       const base = src.slice(0, -ext.length);
       const sm = `${base}-sm${ext}`;
-      return `<figure><img src="${src}" srcset="${sm} 480w, ${src} 800w" sizes="(max-width: 600px) 480px, 800px" alt="${alt}"><figcaption>${alt}</figcaption></figure>`;
+      const md = `${base}-md${ext}`;
+      return `<figure><img src="${src}" srcset="${sm} 360w, ${md} 600w, ${src} 800w" sizes="(max-width: 400px) 360px, (max-width: 800px) 600px, 800px" alt="${alt}"><figcaption>${alt}</figcaption></figure>`;
     }
   );
   // 링크
@@ -320,7 +321,7 @@ function markdownToHtml(md, parentRefs = new Map()) {
         const imgSm = `${imgBase}-sm${imgExt}`;
         out.push(
           `<figure>` +
-            `<img src="${imgSrc}" srcset="${imgSm} 480w, ${imgSrc} 800w" sizes="(max-width: 600px) 480px, 800px" alt="${imgAlt}">` +
+            `<img src="${imgSrc}" srcset="${imgSm} 360w, ${imgBase}-md${imgExt} 600w, ${imgSrc} 800w" sizes="(max-width: 400px) 360px, (max-width: 800px) 600px, 800px" alt="${imgAlt}">` +
             (m[1] ? `<figcaption>${imgAlt}</figcaption>` : "") +
             `</figure>`
         );
@@ -817,6 +818,13 @@ async function build() {
         await sharp(src).resize(IMAGE_WIDTHS.lg).toFile(dest);
       } else {
         fs.copyFileSync(src, dest);
+      }
+      // md (태블릿)
+      const mdDest = path.join(DOCS_DIR, "posts", `${base}-md${ext}`);
+      if (meta.width > IMAGE_WIDTHS.md) {
+        await sharp(src).resize(IMAGE_WIDTHS.md).toFile(mdDest);
+      } else {
+        fs.copyFileSync(src, mdDest);
       }
       // sm (모바일)
       const smDest = path.join(DOCS_DIR, "posts", `${base}-sm${ext}`);
