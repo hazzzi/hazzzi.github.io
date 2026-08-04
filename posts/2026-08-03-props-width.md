@@ -3,6 +3,7 @@ title: 타입을 다 닫았는데 props는 왜 자꾸 늘어날까
 date: 2026-08-03
 description: 타입이 줄여주는 것과 못 줄이는 것, props 개수에 대하여
 tldr: union type으로 잘못된 조합을 다 닫아도 props 개수는 안 줄어듭니다. 개수를 줄이는 건 타입이 아니라 의존 설계입니다. prop마다 "이 값, 부르는 쪽이 정할 이유가 있나"를 물어서 없으면 지웁니다. 깊이는 컴파일러가 지켜주지만 폭은 아직 이 질문으로만 지켜집니다.
+issue: 11
 ---
 
 [전에 union type으로 props를 설계하는 글](https://hazzzi.github.io/posts/2026-03-31-union-type-props.html)을 썼습니다. 그 뒤로도 쭉 그렇게 일해왔습니다. 상태는 discriminated union으로 닫고, 불가능한 조합은 타입으로 막고. 요즘은 코드를 에이전트가 짜니까 리뷰할 때도 이 기준으로 봤습니다. 타입이 멀쩡하면 통과시켰습니다.
