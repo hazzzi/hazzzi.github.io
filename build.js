@@ -885,7 +885,7 @@ async function build() {
   const commentsMap = await fetchAllComments(issueNumbers);
 
   // OG 이미지 생성
-  await generateOgImages(posts);
+  await generateOgImages([...posts, ...enPosts]);
 
   // 포스트 페이지 렌더 → 디스크 쓰기
   // posts는 최신순(한국어만). older = 이전(오래된) 글, newer = 다음(최근) 글
